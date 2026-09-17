@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" width="100%" height="100%">
+  <defs>
+    <radialGradient id="laysBg" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#eff6ff"/><stop offset="100%" stop-color="#dbeafe"/></radialGradient>
+    <linearGradient id="laysBlue" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#2563eb"/><stop offset="100%" stop-color="#1e3a8a"/></linearGradient>
+  </defs>
+  <rect width="400" height="400" fill="url(#laysBg)"/>
+  <rect x="75" y="55" width="250" height="290" rx="22" fill="url(#laysBlue)" stroke="#1d4ed8" stroke-width="2" filter="drop-shadow(0 14px 18px rgba(30,58,138,0.3))"/>
+  <!-- Lay's Sun Logo -->
+  <circle cx="200" cy="125" r="42" fill="#eab308" stroke="#ffffff" stroke-width="3"/>
+  <rect x="135" y="112" width="130" height="26" rx="13" fill="#dc2626"/>
+  <text x="200" y="130" font-family="Arial Black, sans-serif" font-weight="900" font-size="22" fill="#ffffff" text-anchor="middle" font-style="italic">Lay's</text>
+  <!-- Flavor banner -->
+  <rect x="100" y="180" width="200" height="32" rx="8" fill="#ea580c"/>
+  <text x="200" y="202" font-family="system-ui, sans-serif" font-weight="900" font-size="13" fill="#ffffff" text-anchor="middle">INDIA'S MAGIC MASALA</text>
+  <!-- Potato chips illustration -->
+  <ellipse cx="170" cy="255" rx="35" ry="22" fill="#facc15" transform="rotate(-15 170 255)"/>
+  <ellipse cx="230" cy="250" rx="38" ry="24" fill="#eab308" transform="rotate(20 230 250)"/>
+  <text x="200" y="325" font-family="system-ui, sans-serif" font-weight="bold" font-size="11" fill="#93c5fd" text-anchor="middle">CRISPY POTATO CHIPS • 50g</text>
+</svg>

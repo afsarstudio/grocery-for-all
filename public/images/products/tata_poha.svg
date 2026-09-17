@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" width="100%" height="100%">
+  <defs>
+    <radialGradient id="pohaBg" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#f0fdf4"/><stop offset="100%" stop-color="#dcfce7"/></radialGradient>
+    <linearGradient id="pohaGreen" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#15803d"/><stop offset="100%" stop-color="#166534"/></linearGradient>
+  </defs>
+  <rect width="400" height="400" fill="url(#pohaBg)"/>
+  <rect x="75" y="55" width="250" height="290" rx="16" fill="url(#pohaGreen)" filter="drop-shadow(0 12px 18px rgba(0,0,0,0.2))"/>
+  <rect x="75" y="80" width="250" height="35" fill="#ffffff"/>
+  <text x="200" y="105" font-family="system-ui, sans-serif" font-weight="900" font-size="18" fill="#15803d" text-anchor="middle">TATA SAMPANN</text>
+  <text x="200" y="160" font-family="Arial Black, sans-serif" font-weight="900" font-size="24" fill="#fde047" text-anchor="middle">THICK POHA</text>
+  <text x="200" y="185" font-family="system-ui, sans-serif" font-weight="bold" font-size="12" fill="#bbf7d0" text-anchor="middle">HIGH FIBER FLATTENED RICE</text>
+  <ellipse cx="200" cy="245" rx="55" ry="22" fill="#ffffff"/>
+  <text x="200" y="325" font-family="system-ui, sans-serif" font-weight="bold" font-size="11" fill="#ffffff" text-anchor="middle">NON-STICKY BREAKFAST • 500g</text>
+</svg>

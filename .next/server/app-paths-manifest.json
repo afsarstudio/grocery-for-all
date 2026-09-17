@@ -1,0 +1,9 @@
+{
+  "/orders/[id]/page": "app/orders/[id]/page.js",
+  "/page": "app/page.js",
+  "/admin/stock/page": "app/admin/stock/page.js",
+  "/manager/page": "app/manager/page.js",
+  "/manager/orders/page": "app/manager/orders/page.js",
+  "/manager/dispatch/page": "app/manager/dispatch/page.js",
+  "/manager/inventory/page": "app/manager/inventory/page.js"
+}

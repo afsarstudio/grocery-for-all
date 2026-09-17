@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" width="100%" height="100%">
+  <defs>
+    <radialGradient id="dwBg" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#fdf2f8"/><stop offset="100%" stop-color="#fce7f3"/></radialGradient>
+    <linearGradient id="dwMaroon" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#831843"/><stop offset="100%" stop-color="#500724"/></linearGradient>
+  </defs>
+  <rect width="400" height="400" fill="url(#dwBg)"/>
+  <rect x="75" y="55" width="250" height="290" rx="16" fill="url(#dwMaroon)" stroke="#9d174d" stroke-width="2" filter="drop-shadow(0 14px 18px rgba(80,7,36,0.35))"/>
+  <text x="200" y="115" font-family="Georgia, serif" font-weight="bold" font-size="28" fill="#fde047" text-anchor="middle">DAAWAT</text>
+  <rect x="115" y="130" width="170" height="26" rx="6" fill="#fbbf24"/>
+  <text x="200" y="148" font-family="Arial Black, sans-serif" font-weight="900" font-size="13" fill="#831843" text-anchor="middle">SUPER BASMATI</text>
+  <text x="200" y="185" font-family="system-ui, sans-serif" font-weight="bold" font-size="12" fill="#fbcfe8" text-anchor="middle">AGED PEARLY SLENDER GRAINS</text>
+  <!-- Rice grains -->
+  <ellipse cx="200" cy="245" rx="55" ry="20" fill="#ffffff"/>
+  <text x="200" y="325" font-family="system-ui, sans-serif" font-weight="bold" font-size="11" fill="#fde047" text-anchor="middle">EXPANDS UP TO 2.5X • 1kg</text>
+</svg>

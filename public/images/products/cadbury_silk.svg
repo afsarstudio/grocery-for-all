@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" width="100%" height="100%">
+  <defs>
+    <radialGradient id="silkBg" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#faf5ff"/><stop offset="100%" stop-color="#f3e8ff"/></radialGradient>
+    <linearGradient id="silkPurple" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#581c87"/><stop offset="100%" stop-color="#3b0764"/></linearGradient>
+    <linearGradient id="goldRibbon" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="#f59e0b"/><stop offset="50%" stop-color="#fde68a"/><stop offset="100%" stop-color="#d97706"/></linearGradient>
+  </defs>
+  <rect width="400" height="400" fill="url(#silkBg)"/>
+  <rect x="80" y="55" width="240" height="290" rx="16" fill="url(#silkPurple)" stroke="#6b21a8" stroke-width="2" filter="drop-shadow(0 14px 20px rgba(88,28,135,0.35))"/>
+  <text x="200" y="95" font-family="Georgia, serif" font-weight="bold" font-size="16" fill="#fde047" text-anchor="middle" font-style="italic">Cadbury</text>
+  <text x="200" y="120" font-family="system-ui, sans-serif" font-weight="900" font-size="14" fill="#ffffff" text-anchor="middle" letter-spacing="2">DAIRY MILK</text>
+  <!-- Silk Ribbon -->
+  <path d="M 90 145 Q 200 185 310 145 Q 200 165 90 145 Z" fill="url(#goldRibbon)"/>
+  <text x="200" y="200" font-family="Brush Script MT, cursive, serif" font-size="44" fill="url(#goldRibbon)" text-anchor="middle">Silk</text>
+  <!-- Chocolate Bar Cube -->
+  <rect x="155" y="230" width="90" height="55" rx="8" fill="#451a03" stroke="#78350f" stroke-width="2"/>
+  <rect x="165" y="238" width="70" height="38" rx="4" fill="#713f12"/>
+  <text x="200" y="262" font-family="Georgia, serif" font-size="10" fill="#ca8a04" text-anchor="middle">Cadbury</text>
+  <text x="200" y="325" font-family="system-ui, sans-serif" font-weight="bold" font-size="11" fill="#e9d5ff" text-anchor="middle">PURE CHOCOLATE BLISS • 150g</text>
+</svg>

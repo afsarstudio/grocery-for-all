@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" width="100%" height="100%">
+  <defs>
+    <radialGradient id="milkBg" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#f0fdf4"/><stop offset="100%" stop-color="#dcfce7"/></radialGradient>
+    <linearGradient id="cartonBlue" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#0284c7"/><stop offset="100%" stop-color="#0369a1"/></linearGradient>
+  </defs>
+  <rect width="400" height="400" fill="url(#milkBg)"/>
+  <!-- Tetra Pack Base -->
+  <rect x="120" y="65" width="160" height="270" rx="10" fill="#ffffff" stroke="#cbd5e1" stroke-width="2" filter="drop-shadow(0 12px 18px rgba(0,0,0,0.15))"/>
+  <rect x="120" y="65" width="160" height="70" fill="url(#cartonBlue)"/>
+  <rect x="180" y="45" width="40" height="22" rx="4" fill="#0284c7"/>
+  <text x="200" y="95" font-family="Georgia, serif" font-weight="bold" font-size="20" fill="#dc2626" text-anchor="middle">Amul</text>
+  <text x="200" y="120" font-family="Arial Black, sans-serif" font-weight="900" font-size="16" fill="#ffffff" text-anchor="middle">TAAZA</text>
+  <text x="200" y="175" font-family="system-ui, sans-serif" font-weight="900" font-size="13" fill="#0369a1" text-anchor="middle">HOMOGENISED</text>
+  <text x="200" y="195" font-family="system-ui, sans-serif" font-weight="bold" font-size="11" fill="#64748b" text-anchor="middle">TONED MILK</text>
+  <!-- Milk Drop -->
+  <circle cx="200" cy="245" r="28" fill="#e0f2fe"/>
+  <circle cx="200" cy="245" r="18" fill="#38bdf8"/>
+  <text x="200" y="315" font-family="system-ui, sans-serif" font-weight="bold" font-size="11" fill="#0369a1" text-anchor="middle">1 LITRE TETRA PACK</text>
+</svg>

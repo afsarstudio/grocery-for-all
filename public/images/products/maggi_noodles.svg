@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" width="100%" height="100%">
+  <defs>
+    <radialGradient id="bgGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#fffbeb"/>
+      <stop offset="100%" stop-color="#fef3c7"/>
+    </radialGradient>
+    <linearGradient id="maggiYellow" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fde047"/>
+      <stop offset="50%" stop-color="#eab308"/>
+      <stop offset="100%" stop-color="#ca8a04"/>
+    </linearGradient>
+    <linearGradient id="maggiRed" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#dc2626"/>
+      <stop offset="100%" stop-color="#991b1b"/>
+    </linearGradient>
+    <filter id="dropShadow" x="-10%" y="-10%" width="130%" height="130%">
+      <feDropShadow dx="0" dy="12" stdDeviation="10" flood-opacity="0.25"/>
+    </filter>
+  </defs>
+
+  <rect width="400" height="400" fill="url(#bgGlow)"/>
+
+  <!-- Maggi Pack Shadow -->
+  <rect x="75" y="65" width="250" height="280" rx="20" fill="black" opacity="0.15" filter="blur(8px)"/>
+
+  <!-- Maggi Pack Base -->
+  <rect x="70" y="55" width="260" height="290" rx="18" fill="url(#maggiYellow)" filter="url(#dropShadow)" stroke="#b45309" stroke-width="2"/>
+
+  <!-- Red Accent Ribbons Top & Bottom -->
+  <path d="M 70 70 Q 200 85 330 70 L 330 115 Q 200 130 70 115 Z" fill="url(#maggiRed)"/>
+  <rect x="70" y="315" width="260" height="30" rx="8" fill="url(#maggiRed)"/>
+
+  <!-- Brand Oval -->
+  <ellipse cx="200" cy="98" rx="70" ry="24" fill="#fbbf24" stroke="#dc2626" stroke-width="3"/>
+  <text x="200" y="106" font-family="Arial Black, Impact, sans-serif" font-weight="900" font-size="28" fill="#dc2626" text-anchor="middle" font-style="italic">Maggi</text>
+
+  <!-- Product Title -->
+  <text x="200" y="155" font-family="system-ui, sans-serif" font-weight="900" font-size="20" fill="#78350f" text-anchor="middle">2-MINUTE NOODLES</text>
+  <rect x="135" y="165" width="130" height="22" rx="11" fill="#dc2626"/>
+  <text x="200" y="180" font-family="system-ui, sans-serif" font-weight="bold" font-size="12" fill="#ffffff" text-anchor="middle">MASALA MAGIC</text>
+
+  <!-- Noodle Bowl Illustration -->
+  <ellipse cx="200" cy="245" rx="80" ry="40" fill="#b45309"/>
+  <ellipse cx="200" cy="240" rx="76" ry="36" fill="#f59e0b"/>
+  <path d="M 140 240 Q 160 215 185 240 T 230 235 T 260 242" fill="none" stroke="#fef08a" stroke-width="6" stroke-linecap="round"/>
+  <path d="M 150 250 Q 180 230 205 255 T 250 248" fill="none" stroke="#fef08a" stroke-width="5" stroke-linecap="round"/>
+  <circle cx="170" cy="235" r="4" fill="#22c55e"/>
+  <circle cx="225" cy="245" r="4" fill="#ef4444"/>
+  <circle cx="195" cy="230" r="3.5" fill="#f97316"/>
+
+  <!-- Veg Emblem -->
+  <rect x="290" y="70" width="22" height="22" rx="4" fill="#ffffff" stroke="#15803d" stroke-width="2"/>
+  <circle cx="301" cy="81" r="5" fill="#15803d"/>
+
+  <!-- Pack details badge -->
+  <text x="200" y="334" font-family="system-ui, sans-serif" font-weight="bold" font-size="11" fill="#ffffff" text-anchor="middle">PACK OF 4 • 280g</text>
+</svg>

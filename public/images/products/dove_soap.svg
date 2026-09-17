@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" width="100%" height="100%">
+  <defs>
+    <radialGradient id="doveBg" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#faf5ff"/><stop offset="100%" stop-color="#f5f3ff"/></radialGradient>
+    <linearGradient id="doveBlue" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#1e3a8a"/><stop offset="100%" stop-color="#3b82f6"/></linearGradient>
+  </defs>
+  <rect width="400" height="400" fill="url(#doveBg)"/>
+  <rect x="75" y="80" width="250" height="240" rx="16" fill="#ffffff" stroke="#e2e8f0" stroke-width="2" filter="drop-shadow(0 12px 18px rgba(0,0,0,0.1))"/>
+  <!-- Gold Bird Silhouette -->
+  <path d="M 215 110 Q 230 115 225 130 Q 210 135 185 130 Q 170 125 180 115 Q 195 120 215 110 Z" fill="#d97706"/>
+  <text x="200" y="175" font-family="Georgia, serif" font-weight="bold" font-size="34" fill="#1e3a8a" text-anchor="middle">Dove</text>
+  <text x="200" y="210" font-family="system-ui, sans-serif" font-weight="900" font-size="13" fill="#0284c7" text-anchor="middle">BEAUTY CREAM BAR</text>
+  <text x="200" y="235" font-family="system-ui, sans-serif" font-weight="bold" font-size="11" fill="#64748b" text-anchor="middle">1/4 MOISTURISING CREAM</text>
+  <rect x="130" y="260" width="140" height="24" rx="12" fill="#dbeafe"/>
+  <text x="200" y="276" font-family="system-ui, sans-serif" font-weight="bold" font-size="11" fill="#1e40af" text-anchor="middle">PACK OF 3 (300g)</text>
+</svg>

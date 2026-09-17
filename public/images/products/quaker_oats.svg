@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" width="100%" height="100%">
+  <defs>
+    <radialGradient id="oatsBg" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#eff6ff"/><stop offset="100%" stop-color="#dbeafe"/></radialGradient>
+    <linearGradient id="oatsBlue" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#1e40af"/><stop offset="100%" stop-color="#1e3a8a"/></linearGradient>
+  </defs>
+  <rect width="400" height="400" fill="url(#oatsBg)"/>
+  <rect x="75" y="55" width="250" height="290" rx="16" fill="url(#oatsBlue)" filter="drop-shadow(0 14px 18px rgba(30,58,138,0.3))"/>
+  <rect x="75" y="55" width="250" height="60" fill="#dc2626" rx="16"/>
+  <text x="200" y="98" font-family="Georgia, serif" font-weight="bold" font-size="24" fill="#ffffff" text-anchor="middle">QUAKER</text>
+  <text x="200" y="160" font-family="Arial Black, sans-serif" font-weight="900" font-size="26" fill="#fde047" text-anchor="middle">OATS</text>
+  <text x="200" y="185" font-family="system-ui, sans-serif" font-weight="bold" font-size="12" fill="#bfdbfe" text-anchor="middle">100% WHOLEGRAIN ROLLED</text>
+  <!-- Bowl of oats -->
+  <ellipse cx="200" cy="245" rx="60" ry="26" fill="#ffffff"/>
+  <ellipse cx="200" cy="240" rx="54" ry="22" fill="#fef08a"/>
+  <text x="200" y="325" font-family="system-ui, sans-serif" font-weight="bold" font-size="11" fill="#ffffff" text-anchor="middle">HIGH FIBER • 1kg POUCH</text>
+</svg>

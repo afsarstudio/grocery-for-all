@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" width="100%" height="100%">
+  <defs>
+    <radialGradient id="cdBg" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#fffbeb"/><stop offset="100%" stop-color="#fef3c7"/></radialGradient>
+    <linearGradient id="cdPouch" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#f59e0b"/><stop offset="100%" stop-color="#d97706"/></linearGradient>
+  </defs>
+  <rect width="400" height="400" fill="url(#cdBg)"/>
+  <rect x="75" y="55" width="250" height="290" rx="16" fill="url(#cdPouch)" stroke="#b45309" stroke-width="2" filter="drop-shadow(0 12px 18px rgba(0,0,0,0.15))"/>
+  <rect x="75" y="80" width="250" height="35" fill="#78350f"/>
+  <text x="200" y="105" font-family="system-ui, sans-serif" font-weight="900" font-size="18" fill="#ffffff" text-anchor="middle">DESI SPECIAL</text>
+  <text x="200" y="160" font-family="Arial Black, sans-serif" font-weight="900" font-size="22" fill="#ffffff" text-anchor="middle">CHANA DAL</text>
+  <text x="200" y="185" font-family="system-ui, sans-serif" font-weight="bold" font-size="12" fill="#fef08a" text-anchor="middle">UNPOLISHED SWEET &amp; NUTTY</text>
+  <ellipse cx="200" cy="245" rx="55" ry="25" fill="#fef08a" stroke="#b45309" stroke-width="2"/>
+  <text x="200" y="325" font-family="system-ui, sans-serif" font-weight="bold" font-size="11" fill="#ffffff" text-anchor="middle">HIGH FIBER • 1kg</text>
+</svg>
