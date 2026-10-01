@@ -1,9 +1,7 @@
 {
-  "/orders/[id]/page": "app/orders/[id]/page.js",
   "/page": "app/page.js",
-  "/admin/stock/page": "app/admin/stock/page.js",
-  "/manager/page": "app/manager/page.js",
-  "/manager/orders/page": "app/manager/orders/page.js",
-  "/manager/dispatch/page": "app/manager/dispatch/page.js",
-  "/manager/inventory/page": "app/manager/inventory/page.js"
+  "/orders/page": "app/orders/page.js",
+  "/admin/page": "app/admin/page.js",
+  "/staff/billing/page": "app/staff/billing/page.js",
+  "/manager/page": "app/manager/page.js"
 }
