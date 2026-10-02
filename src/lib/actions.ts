@@ -1,7 +1,7 @@
 "use server";
 
-import prisma from "./prisma";
 import { revalidatePath } from "next/cache";
+import { mockDb, Product, Category, Customer, Order, OrderItem } from "./mockStore";
 
 function safeRevalidate(path: string) {
   try {
@@ -11,20 +11,16 @@ function safeRevalidate(path: string) {
 
 // --- CATEGORIES ---
 export async function getCategories() {
-  try {
-    const categories = await prisma.category.findMany({
-      include: {
-        _count: {
-          select: { products: true },
-        },
+  const categoriesWithCount = mockDb.categories.map((cat) => {
+    const count = mockDb.products.filter((p) => p.categoryId === cat.id).length;
+    return {
+      ...cat,
+      _count: {
+        products: count,
       },
-      orderBy: { name: "asc" },
-    });
-    return categories;
-  } catch (error) {
-    console.error("Error fetching categories:", error);
-    return [];
-  }
+    };
+  });
+  return categoriesWithCount;
 }
 
 // --- PRODUCTS ---
@@ -38,83 +34,81 @@ export async function getProducts(params?: {
   sortBy?: "price_asc" | "price_desc" | "name" | "newest" | "discount";
   inStockOnly?: boolean;
 }) {
-  try {
-    const where: any = {};
+  let list = [...mockDb.products];
 
-    if (params?.categoryId) {
-      where.categoryId = params.categoryId;
-    }
-
-    if (params?.categorySlug) {
-      where.category = { slug: params.categorySlug };
-    }
-
-    if (params?.featured !== undefined) {
-      where.isFeatured = params.featured;
-    }
-
-    if (params?.inStockOnly) {
-      where.stock = { gt: 0 };
-    }
-
-    if (params?.query) {
-      where.OR = [
-        { name: { contains: params.query } },
-        { description: { contains: params.query } },
-        { brand: { contains: params.query } },
-      ];
-    }
-
-    if (params?.minPrice !== undefined || params?.maxPrice !== undefined) {
-      where.price = {};
-      if (params.minPrice !== undefined) where.price.gte = params.minPrice;
-      if (params.maxPrice !== undefined) where.price.lte = params.maxPrice;
-    }
-
-    let orderBy: any = { createdAt: "desc" };
-    if (params?.sortBy === "price_asc") orderBy = { price: "asc" };
-    if (params?.sortBy === "price_desc") orderBy = { price: "desc" };
-    if (params?.sortBy === "name") orderBy = { name: "asc" };
-    if (params?.sortBy === "newest") orderBy = { createdAt: "desc" };
-
-    const products = await prisma.product.findMany({
-      where,
-      include: { category: true },
-      orderBy,
-    });
-
-    return products;
-  } catch (error) {
-    console.error("Error fetching products:", error);
-    return [];
+  if (params?.categoryId) {
+    list = list.filter((p) => p.categoryId === params.categoryId);
   }
+
+  if (params?.categorySlug) {
+    const cat = mockDb.categories.find((c) => c.slug === params.categorySlug);
+    if (cat) {
+      list = list.filter((p) => p.categoryId === cat.id);
+    } else {
+      list = [];
+    }
+  }
+
+  if (params?.featured !== undefined) {
+    list = list.filter((p) => p.isFeatured === params.featured);
+  }
+
+  if (params?.inStockOnly) {
+    list = list.filter((p) => p.stock > 0);
+  }
+
+  if (params?.query) {
+    const q = params.query.toLowerCase();
+    list = list.filter(
+      (p) =>
+        p.name.toLowerCase().includes(q) ||
+        (p.description && p.description.toLowerCase().includes(q)) ||
+        (p.brand && p.brand.toLowerCase().includes(q))
+    );
+  }
+
+  if (params?.minPrice !== undefined) {
+    list = list.filter((p) => p.price >= params.minPrice!);
+  }
+
+  if (params?.maxPrice !== undefined) {
+    list = list.filter((p) => p.price <= params.maxPrice!);
+  }
+
+  if (params?.sortBy === "price_asc") {
+    list.sort((a, b) => a.price - b.price);
+  } else if (params?.sortBy === "price_desc") {
+    list.sort((a, b) => b.price - a.price);
+  } else if (params?.sortBy === "name") {
+    list.sort((a, b) => a.name.localeCompare(b.name));
+  } else if (params?.sortBy === "discount") {
+    list.sort((a, b) => (b.mrp - b.price) - (a.mrp - a.price));
+  } else {
+    // Default: newest first
+    list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  }
+
+  return list.map((p) => ({
+    ...p,
+    category: mockDb.categories.find((c) => c.id === p.categoryId),
+  }));
 }
 
 export async function getProductBySlug(slug: string) {
-  try {
-    const product = await prisma.product.findUnique({
-      where: { slug },
-      include: { category: true },
-    });
-    return product;
-  } catch (error) {
-    console.error("Error fetching product by slug:", error);
-    return null;
-  }
+  const product = mockDb.products.find((p) => p.slug === slug);
+  if (!product) return null;
+  return {
+    ...product,
+    category: mockDb.categories.find((c) => c.id === product.categoryId),
+  };
 }
 
 export async function getFeaturedProducts() {
-  try {
-    const products = await prisma.product.findMany({
-      where: { isFeatured: true },
-      include: { category: true },
-      take: 8,
-    });
-    return products;
-  } catch (error) {
-    console.error("Error fetching featured products:", error);
-    return [];
-  }
+  const featured = mockDb.products.filter((p) => p.isFeatured).slice(0, 8);
+  return featured.map((p) => ({
+    ...p,
+    category: mockDb.categories.find((c) => c.id === p.categoryId),
+  }));
 }
 
 // --- ORDERS ---
@@ -137,135 +131,91 @@ export async function createOrder(data: {
   couponCode?: string;
 }) {
   try {
-    // 1. Calculate totals
     const subtotal = data.items.reduce((sum, item) => sum + item.price * item.quantity, 0);
     let discount = 0;
 
     if (data.couponCode) {
-      const coupon = await prisma.coupon.findUnique({
-        where: { code: data.couponCode.toUpperCase() },
-      });
-      if (coupon && coupon.isActive && subtotal >= coupon.minOrderAmount) {
+      const coupon = mockDb.coupons.find(
+        (c) => c.code === data.couponCode?.toUpperCase() && c.isActive
+      );
+      if (coupon && subtotal >= coupon.minOrderAmount) {
         discount = Math.min((subtotal * coupon.discountPercent) / 100, coupon.maxDiscount);
       }
     }
 
     const deliveryFee = subtotal >= 499 ? 0 : 40;
     const total = Math.max(0, subtotal - discount + deliveryFee);
+    const cleanPhone = data.customerPhone.trim().replace(/[^0-9]/g, "").slice(-10);
 
-    // 2. Find or create customer
-    let customer = await prisma.customer.findUnique({
-      where: { phone: data.customerPhone },
-    });
-
+    // Find or create customer
+    let customer = mockDb.customers.find((c) => c.phone === cleanPhone);
     if (!customer) {
-      customer = await prisma.customer.create({
-        data: {
-          name: data.customerName,
-          phone: data.customerPhone,
-          email: data.customerEmail || null,
-          address: data.customerAddress,
-        },
-      });
+      customer = {
+        id: `cust-${Date.now()}`,
+        name: data.customerName,
+        phone: cleanPhone || data.customerPhone,
+        email: data.customerEmail || null,
+        address: data.customerAddress,
+        city: "Naugarh",
+        pincode: "272207",
+        points: 50,
+        createdAt: new Date(),
+      };
+      mockDb.customers.push(customer);
     }
 
-    // 3. Validate product IDs to avoid Foreign Key constraint violations if products were re-seeded
-    const validatedItems = await Promise.all(
-      data.items.map(async (item) => {
-        let validProductId: string | null = null;
+    // Award loyalty points
+    const pointsEarned = Math.max(5, Math.floor(total / 10));
+    customer.points = (customer.points || 0) + pointsEarned;
+    customer.address = data.customerAddress || customer.address;
 
-        if (item.productId) {
-          const product = await prisma.product.findUnique({
-            where: { id: item.productId },
-          });
-          if (product) {
-            validProductId = product.id;
-          }
-        }
-
-        // Fallback: match by name if previous ID was outdated
-        if (!validProductId && item.productName) {
-          const productByName = await prisma.product.findFirst({
-            where: { name: item.productName },
-          });
-          if (productByName) {
-            validProductId = productByName.id;
-          }
-        }
-
-        return {
-          ...item,
-          productId: validProductId,
-        };
-      })
-    );
-
-    // 4. Generate human-readable Order Number (e.g. GFA-8045)
+    const orderId = `order-${Date.now()}-${Math.floor(100 + Math.random() * 900)}`;
     const randomSuffix = Math.floor(1000 + Math.random() * 9000);
     const orderNumber = `GFA-${randomSuffix}`;
 
-    // 5. Create Order and OrderItems in a transaction
-    const order = await prisma.$transaction(async (tx) => {
-      const newOrder = await tx.order.create({
-        data: {
-          orderNumber,
-          customerId: customer.id,
-          customerName: data.customerName,
-          customerPhone: data.customerPhone,
-          customerAddress: data.customerAddress,
-          status: "CONFIRMED",
-          paymentMethod: data.paymentMethod,
-          paymentStatus: data.paymentMethod === "COD" ? "PENDING" : "PAID",
-          subtotal,
-          deliveryFee,
-          discount,
-          total,
-          deliverySlot: data.deliverySlot,
-          notes: data.notes || null,
-          items: {
-            create: validatedItems.map((item) => ({
-              productId: item.productId,
-              productName: item.productName,
-              productImage: item.productImage,
-              price: item.price,
-              quantity: item.quantity,
-              unit: item.unit,
-            })),
-          },
-        },
-        include: { items: true },
-      });
-
-      // Update product stocks
-      for (const item of validatedItems) {
-        if (item.productId) {
-          await tx.product
-            .update({
-              where: { id: item.productId },
-              data: {
-                stock: { decrement: item.quantity },
-              },
-            })
-            .catch((err) =>
-              console.warn("Could not decrement stock for", item.productId, err)
-            );
+    const newOrderItems: OrderItem[] = data.items.map((item, idx) => {
+      // Decrement stock
+      if (item.productId) {
+        const prod = mockDb.products.find((p) => p.id === item.productId);
+        if (prod) {
+          prod.stock = Math.max(0, prod.stock - item.quantity);
         }
       }
-
-      // Award loyalty points (1 point per ₹10 spent)
-      const pointsEarned = Math.max(5, Math.floor(total / 10));
-      await tx.customer
-        .update({
-          where: { id: customer.id },
-          data: {
-            points: { increment: pointsEarned },
-            address: data.customerAddress || customer.address,
-          },
-        })
-        .catch((err) => console.warn("Could not award loyalty points", err));
-
-      return newOrder;
+      return {
+        id: `item-${Date.now()}-${idx}`,
+        orderId,
+        productId: item.productId || null,
+        productName: item.productName,
+        productImage: item.productImage,
+        price: item.price,
+        quantity: item.quantity,
+        unit: item.unit,
+      };
     });
+
+    const newOrder: Order = {
+      id: orderId,
+      orderNumber,
+      customerId: customer.id,
+      customerName: data.customerName,
+      customerPhone: cleanPhone || data.customerPhone,
+      customerAddress: data.customerAddress,
+      status: "CONFIRMED",
+      paymentMethod: data.paymentMethod,
+      paymentStatus: data.paymentMethod === "COD" ? "PENDING" : "PAID",
+      subtotal,
+      deliveryFee,
+      discount,
+      total,
+      deliverySlot: data.deliverySlot,
+      notes: data.notes || null,
+      items: newOrderItems,
+      customer,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    mockDb.orders.unshift(newOrder);
 
     safeRevalidate("/admin/orders");
     safeRevalidate("/admin/stock");
@@ -273,7 +223,7 @@ export async function createOrder(data: {
     safeRevalidate("/account");
     safeRevalidate("/orders");
 
-    return { success: true, order };
+    return { success: true, order: newOrder };
   } catch (error: any) {
     console.error("Failed to create order:", error);
     return { success: false, error: error?.message || "Failed to place order" };
@@ -281,72 +231,45 @@ export async function createOrder(data: {
 }
 
 export async function getOrders(filterStatus?: string) {
-  try {
-    const where: any = {};
-    if (filterStatus && filterStatus !== "ALL") {
-      where.status = filterStatus;
-    }
-
-    const orders = await prisma.order.findMany({
-      where,
-      include: {
-        items: true,
-        customer: true,
-      },
-      orderBy: { createdAt: "desc" },
-    });
-    return orders;
-  } catch (error) {
-    console.error("Error fetching orders:", error);
-    return [];
+  let list = [...mockDb.orders];
+  if (filterStatus && filterStatus !== "ALL") {
+    list = list.filter((o) => o.status === filterStatus);
   }
+  list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  return list;
 }
 
 export async function getOrderById(id: string) {
-  try {
-    const order = await prisma.order.findFirst({
-      where: {
-        OR: [{ id }, { orderNumber: id }],
-      },
-      include: {
-        items: true,
-        customer: true,
-      },
-    });
-    return order;
-  } catch (error) {
-    console.error("Error fetching order by id:", error);
-    return null;
-  }
+  const order = mockDb.orders.find((o) => o.id === id || o.orderNumber === id);
+  if (!order) return null;
+  const customer = mockDb.customers.find((c) => c.id === order.customerId);
+  return {
+    ...order,
+    customer,
+  };
 }
 
 export async function updateOrderStatus(orderId: string, status: string, paymentStatus?: string) {
-  try {
-    const data: any = { status };
-    if (paymentStatus) {
-      data.paymentStatus = paymentStatus;
-    } else if (status === "DELIVERED") {
-      data.paymentStatus = "PAID";
-    }
+  const order = mockDb.orders.find((o) => o.id === orderId);
+  if (!order) return { success: false, error: "Order not found" };
 
-    const updated = await prisma.order.update({
-      where: { id: orderId },
-      data,
-      include: { items: true },
-    });
-
-    safeRevalidate("/admin/orders");
-    safeRevalidate("/admin/sales");
-    safeRevalidate("/admin/customers");
-    safeRevalidate(`/orders/${orderId}`);
-    safeRevalidate(`/orders/${updated.orderNumber}`);
-    safeRevalidate("/orders");
-    safeRevalidate("/account");
-    return { success: true, order: updated };
-  } catch (error: any) {
-    console.error("Error updating order status:", error);
-    return { success: false, error: error?.message || "Failed to update order" };
+  order.status = status;
+  if (paymentStatus) {
+    order.paymentStatus = paymentStatus;
+  } else if (status === "DELIVERED") {
+    order.paymentStatus = "PAID";
   }
+  order.updatedAt = new Date();
+
+  safeRevalidate("/admin/orders");
+  safeRevalidate("/admin/sales");
+  safeRevalidate("/admin/customers");
+  safeRevalidate(`/orders/${orderId}`);
+  safeRevalidate(`/orders/${order.orderNumber}`);
+  safeRevalidate("/orders");
+  safeRevalidate("/account");
+
+  return { success: true, order };
 }
 
 // --- ADMIN / PRODUCT CRUD ---
@@ -365,88 +288,56 @@ export async function createProduct(formData: {
   categoryId: string;
 }) {
   try {
-    // 1. Ensure valid Category
     let catId = formData.categoryId;
-    if (!catId) {
-      const firstCat = await prisma.category.findFirst();
-      if (firstCat) {
-        catId = firstCat.id;
-      } else {
-        const newCat = await prisma.category.create({
-          data: {
-            name: "Grocery & Staples",
-            slug: "grocery-staples",
-            icon: "🌾",
-            description: "Daily supermarket staples",
-          },
-        });
-        catId = newCat.id;
-      }
-    } else {
-      const catExists = await prisma.category.findUnique({ where: { id: catId } });
-      if (!catExists) {
-        const firstCat = await prisma.category.findFirst();
-        if (firstCat) catId = firstCat.id;
-      }
+    if (!catId || !mockDb.categories.find((c) => c.id === catId)) {
+      catId = mockDb.categories[0]?.id || "cat-1";
     }
 
-    // 2. Safe slug generation
-    let cleanBase = (formData.name || "grocery-item")
+    const cleanBase = (formData.name || "grocery-item")
       .toLowerCase()
       .trim()
       .replace(/[^a-z0-9]+/g, "-")
       .replace(/^-+|-+$/g, "");
-    if (!cleanBase || cleanBase.length < 2) {
-      cleanBase = "item-" + Date.now().toString(36);
-    }
-    const slug = `${cleanBase}-${Math.random().toString(36).substring(2, 7)}`;
+    const slug = `${cleanBase || "item"}-${Math.random().toString(36).substring(2, 7)}`;
 
-    const price = Number(formData.price) || 0;
-    const mrp = Number(formData.mrp) || price;
-    const stock = Number(formData.stock) >= 0 ? Number(formData.stock) : 50;
-    const unit = formData.unit?.trim() || "1 unit";
-    const imageUrl = formData.imageUrl?.trim() || "/images/products/maggi_noodles.svg";
+    const newProd: Product = {
+      id: `prod-${Date.now()}`,
+      name: formData.name.trim(),
+      description: formData.description?.trim() || null,
+      price: Number(formData.price) || 0,
+      mrp: Number(formData.mrp) || Number(formData.price) || 0,
+      stock: Number(formData.stock) >= 0 ? Number(formData.stock) : 50,
+      unit: formData.unit?.trim() || "1 unit",
+      imageUrl: formData.imageUrl?.trim() || "/images/products/maggi_noodles.svg",
+      badge: formData.badge?.trim() || null,
+      isFeatured: Boolean(formData.isFeatured),
+      isVegetarian: Boolean(formData.isVegetarian),
+      brand: formData.brand?.trim() || "Grocery for All",
+      categoryId: catId,
+      slug,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
 
-    const product = await prisma.product.create({
-      data: {
-        name: formData.name.trim(),
-        description: formData.description?.trim() || null,
-        price,
-        mrp,
-        stock,
-        unit,
-        imageUrl,
-        badge: formData.badge?.trim() || null,
-        isFeatured: Boolean(formData.isFeatured),
-        isVegetarian: Boolean(formData.isVegetarian),
-        brand: formData.brand?.trim() || "Grocery for All",
-        categoryId: catId,
-        slug,
-      },
-      include: {
-        category: true,
-      },
+    newProd.category = mockDb.categories.find((c) => c.id === catId);
+    mockDb.products.unshift(newProd);
+
+    mockDb.inventoryLogs.unshift({
+      id: `log-${Date.now()}`,
+      productId: newProd.id,
+      productName: newProd.name,
+      changeAmount: newProd.stock,
+      type: "RESTOCK",
+      reason: "Initial Product Creation",
+      createdAt: new Date(),
     });
-
-    try {
-      await prisma.inventoryLog.create({
-        data: {
-          productId: product.id,
-          productName: product.name,
-          changeAmount: product.stock,
-          type: "RESTOCK",
-          reason: "Initial Product Creation",
-        },
-      });
-    } catch (logErr) {
-      console.warn("Failed to create inventory log:", logErr);
-    }
 
     safeRevalidate("/admin/products");
     safeRevalidate("/admin/stock");
     safeRevalidate("/products");
     safeRevalidate("/");
-    return { success: true, product };
+
+    return { success: true, product: newProd };
   } catch (error: any) {
     console.error("Error creating product:", error);
     return { success: false, error: error?.message || "Failed to create product" };
@@ -470,341 +361,255 @@ export async function updateProduct(
     categoryId: string;
   }>
 ) {
-  try {
-    const updateData: any = {};
-    if (data.name !== undefined) updateData.name = data.name.trim();
-    if (data.description !== undefined) updateData.description = data.description?.trim() || null;
-    if (data.price !== undefined) updateData.price = Number(data.price) || 0;
-    if (data.mrp !== undefined) updateData.mrp = Number(data.mrp) || 0;
-    if (data.stock !== undefined) updateData.stock = Number(data.stock) >= 0 ? Number(data.stock) : 0;
-    if (data.unit !== undefined) updateData.unit = data.unit.trim();
-    if (data.imageUrl !== undefined) updateData.imageUrl = data.imageUrl.trim();
-    if (data.badge !== undefined) updateData.badge = data.badge?.trim() || null;
-    if (data.isFeatured !== undefined) updateData.isFeatured = Boolean(data.isFeatured);
-    if (data.isVegetarian !== undefined) updateData.isVegetarian = Boolean(data.isVegetarian);
-    if (data.brand !== undefined) updateData.brand = data.brand?.trim() || null;
-    if (data.categoryId !== undefined && data.categoryId) updateData.categoryId = data.categoryId;
+  const prod = mockDb.products.find((p) => p.id === id);
+  if (!prod) return { success: false, error: "Product not found" };
 
-    const product = await prisma.product.update({
-      where: { id },
-      data: updateData,
-      include: {
-        category: true,
-      },
-    });
-
-    safeRevalidate("/admin/products");
-    safeRevalidate("/admin/stock");
-    safeRevalidate("/products");
-    safeRevalidate("/");
-    return { success: true, product };
-  } catch (error: any) {
-    console.error("Error updating product:", error);
-    return { success: false, error: error?.message || "Failed to update product" };
+  if (data.name !== undefined) prod.name = data.name.trim();
+  if (data.description !== undefined) prod.description = data.description?.trim() || null;
+  if (data.price !== undefined) prod.price = Number(data.price) || 0;
+  if (data.mrp !== undefined) prod.mrp = Number(data.mrp) || 0;
+  if (data.stock !== undefined) prod.stock = Number(data.stock) >= 0 ? Number(data.stock) : 0;
+  if (data.unit !== undefined) prod.unit = data.unit.trim();
+  if (data.imageUrl !== undefined) prod.imageUrl = data.imageUrl.trim();
+  if (data.badge !== undefined) prod.badge = data.badge?.trim() || null;
+  if (data.isFeatured !== undefined) prod.isFeatured = Boolean(data.isFeatured);
+  if (data.isVegetarian !== undefined) prod.isVegetarian = Boolean(data.isVegetarian);
+  if (data.brand !== undefined) prod.brand = data.brand?.trim() || null;
+  if (data.categoryId !== undefined) {
+    prod.categoryId = data.categoryId;
+    prod.category = mockDb.categories.find((c) => c.id === data.categoryId);
   }
+  prod.updatedAt = new Date();
+
+  safeRevalidate("/admin/products");
+  safeRevalidate("/admin/stock");
+  safeRevalidate("/products");
+  safeRevalidate("/");
+
+  return { success: true, product: prod };
 }
 
-export async function deleteProduct(id: string) {
-  try {
-    await prisma.product.delete({ where: { id } });
-    safeRevalidate("/admin/products");
-    safeRevalidate("/admin/stock");
-    safeRevalidate("/products");
-    return { success: true };
-  } catch (error: any) {
-    console.error("Error deleting product:", error);
-    return { success: false, error: error?.message || "Failed to delete product" };
+export async function deleteProduct(id: string): Promise<{ success: boolean; error?: string }> {
+  const idx = mockDb.products.findIndex((p) => p.id === id);
+  if (idx !== -1) {
+    mockDb.products.splice(idx, 1);
   }
+  safeRevalidate("/admin/products");
+  safeRevalidate("/admin/stock");
+  safeRevalidate("/products");
+  return { success: true };
 }
 
 export async function restockProduct(id: string, quantityToAdd: number, reason = "Manual Restock") {
-  try {
-    const current = await prisma.product.findUnique({ where: { id } });
-    if (!current) return { success: false, error: "Product not found" };
+  const prod = mockDb.products.find((p) => p.id === id);
+  if (!prod) return { success: false, error: "Product not found" };
 
-    const product = await prisma.product.update({
-      where: { id },
-      data: {
-        stock: { increment: quantityToAdd },
-      },
-    });
+  prod.stock += quantityToAdd;
+  prod.updatedAt = new Date();
 
-    await prisma.inventoryLog.create({
-      data: {
-        productId: product.id,
-        productName: product.name,
-        changeAmount: quantityToAdd,
-        type: quantityToAdd >= 0 ? "RESTOCK" : "CORRECTION",
-        reason,
-      },
-    });
+  mockDb.inventoryLogs.unshift({
+    id: `log-${Date.now()}`,
+    productId: prod.id,
+    productName: prod.name,
+    changeAmount: quantityToAdd,
+    type: quantityToAdd >= 0 ? "RESTOCK" : "CORRECTION",
+    reason,
+    createdAt: new Date(),
+  });
 
-    safeRevalidate("/admin/stock");
-    safeRevalidate("/admin/products");
-    safeRevalidate("/manager/inventory");
-    safeRevalidate("/manager");
-    safeRevalidate("/products");
-    return { success: true, product };
-  } catch (error: any) {
-    console.error("Error restocking product:", error);
-    return { success: false, error: error?.message || "Failed to restock" };
-  }
+  safeRevalidate("/admin/stock");
+  safeRevalidate("/admin/products");
+  safeRevalidate("/manager/inventory");
+  safeRevalidate("/manager");
+  safeRevalidate("/products");
+
+  return { success: true, product: prod };
 }
 
-export async function setProductExactStock(id: string, exactStock: number, reason = "Physical Audit / Stock Adjustment") {
-  try {
-    const current = await prisma.product.findUnique({ where: { id } });
-    if (!current) return { success: false, error: "Product not found" };
+export async function setProductExactStock(
+  id: string,
+  exactStock: number,
+  reason = "Physical Audit / Stock Adjustment"
+) {
+  const prod = mockDb.products.find((p) => p.id === id);
+  if (!prod) return { success: false, error: "Product not found" };
 
-    const targetStock = Math.max(0, exactStock);
-    const changeAmount = targetStock - current.stock;
+  const targetStock = Math.max(0, exactStock);
+  const changeAmount = targetStock - prod.stock;
+  prod.stock = targetStock;
+  prod.updatedAt = new Date();
 
-    const product = await prisma.product.update({
-      where: { id },
-      data: {
-        stock: targetStock,
-      },
-    });
+  mockDb.inventoryLogs.unshift({
+    id: `log-${Date.now()}`,
+    productId: prod.id,
+    productName: prod.name,
+    changeAmount,
+    type: changeAmount >= 0 ? "RESTOCK" : "CORRECTION",
+    reason,
+    createdAt: new Date(),
+  });
 
-    await prisma.inventoryLog.create({
-      data: {
-        productId: product.id,
-        productName: product.name,
-        changeAmount,
-        type: changeAmount >= 0 ? "RESTOCK" : "CORRECTION",
-        reason,
-      },
-    });
+  safeRevalidate("/admin/stock");
+  safeRevalidate("/admin/products");
+  safeRevalidate("/manager/inventory");
+  safeRevalidate("/manager");
+  safeRevalidate("/products");
 
-    safeRevalidate("/admin/stock");
-    safeRevalidate("/admin/products");
-    safeRevalidate("/manager/inventory");
-    safeRevalidate("/manager");
-    safeRevalidate("/products");
-    return { success: true, product };
-  } catch (error: any) {
-    console.error("Error setting exact stock:", error);
-    return { success: false, error: error?.message || "Failed to adjust stock" };
-  }
+  return { success: true, product: prod };
 }
 
 export async function bulkRestockProducts(
   items: { productId: string; quantityToAdd: number; reason?: string }[]
 ) {
-  try {
-    if (!items || items.length === 0) {
-      return { success: false, error: "No items provided for restocking" };
-    }
-
-    const updatedProducts: any[] = [];
-
-    await prisma.$transaction(async (tx) => {
-      for (const item of items) {
-        if (!item.productId || item.quantityToAdd <= 0) continue;
-
-        const updated = await tx.product.update({
-          where: { id: item.productId },
-          data: {
-            stock: { increment: item.quantityToAdd },
-          },
-        });
-
-        await tx.inventoryLog.create({
-          data: {
-            productId: updated.id,
-            productName: updated.name,
-            changeAmount: item.quantityToAdd,
-            type: "RESTOCK",
-            reason: item.reason || "AI Visual Batch Restock",
-          },
-        });
-
-        updatedProducts.push(updated);
-      }
-    });
-
-    safeRevalidate("/admin/stock");
-    safeRevalidate("/admin/products");
-    safeRevalidate("/products");
-    return { success: true, count: updatedProducts.length, products: updatedProducts };
-  } catch (error: any) {
-    console.error("Error bulk restocking products:", error);
-    return { success: false, error: error?.message || "Failed to bulk restock" };
+  if (!items || items.length === 0) {
+    return { success: false, error: "No items provided for restocking" };
   }
-}
 
+  const updatedProducts: Product[] = [];
+
+  for (const item of items) {
+    if (!item.productId || item.quantityToAdd <= 0) continue;
+    const prod = mockDb.products.find((p) => p.id === item.productId);
+    if (prod) {
+      prod.stock += item.quantityToAdd;
+      prod.updatedAt = new Date();
+      updatedProducts.push(prod);
+
+      mockDb.inventoryLogs.unshift({
+        id: `log-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        productId: prod.id,
+        productName: prod.name,
+        changeAmount: item.quantityToAdd,
+        type: "RESTOCK",
+        reason: item.reason || "AI Visual Batch Restock",
+        createdAt: new Date(),
+      });
+    }
+  }
+
+  safeRevalidate("/admin/stock");
+  safeRevalidate("/admin/products");
+  safeRevalidate("/products");
+
+  return { success: true, count: updatedProducts.length, products: updatedProducts };
+}
 
 // --- ADMIN & MANAGER ANALYTICS & KPIS ---
 export async function getAdminKPIs() {
-  try {
-    const [totalProducts, totalOrders, customersCount, lowStockProducts, orders] = await Promise.all([
-      prisma.product.count(),
-      prisma.order.count(),
-      prisma.customer.count(),
-      prisma.product.count({ where: { stock: { lte: 15 } } }),
-      prisma.order.findMany({ select: { total: true, status: true, createdAt: true } }),
-    ]);
+  const totalProducts = mockDb.products.length;
+  const totalOrders = mockDb.orders.length;
+  const customersCount = mockDb.customers.length;
+  const lowStockProducts = mockDb.products.filter((p) => p.stock <= 15).length;
+  const totalRevenue = mockDb.orders.reduce(
+    (sum, o) => (o.status !== "CANCELLED" ? sum + o.total : sum),
+    0
+  );
+  const pendingOrdersCount = mockDb.orders.filter(
+    (o) => o.status === "PENDING" || o.status === "CONFIRMED" || o.status === "PACKING"
+  ).length;
 
-    const totalRevenue = orders.reduce((sum, o) => (o.status !== "CANCELLED" ? sum + o.total : sum), 0);
-    const pendingOrdersCount = orders.filter((o) => o.status === "PENDING" || o.status === "CONFIRMED" || o.status === "PACKING").length;
-
-    return {
-      totalProducts,
-      totalOrders,
-      customersCount,
-      lowStockProducts,
-      totalRevenue,
-      pendingOrdersCount,
-    };
-  } catch (error) {
-    console.error("Error fetching admin KPIs:", error);
-    return {
-      totalProducts: 0,
-      totalOrders: 0,
-      customersCount: 0,
-      lowStockProducts: 0,
-      totalRevenue: 0,
-      pendingOrdersCount: 0,
-    };
-  }
+  return {
+    totalProducts,
+    totalOrders,
+    customersCount,
+    lowStockProducts,
+    totalRevenue,
+    pendingOrdersCount,
+  };
 }
 
 export async function getManagerOverviewData() {
-  try {
-    const [
+  const totalProducts = mockDb.products.length;
+  const totalOrders = mockDb.orders.length;
+  const customersCount = mockDb.customers.length;
+  const lowStockCount = mockDb.products.filter((p) => p.stock <= 15).length;
+
+  const totalRevenue = mockDb.orders.reduce(
+    (sum, o) => (o.status !== "CANCELLED" ? sum + o.total : sum),
+    0
+  );
+  const pendingOrdersCount = mockDb.orders.filter(
+    (o) => o.status === "PENDING" || o.status === "CONFIRMED" || o.status === "PACKING"
+  ).length;
+
+  const cashTotal = mockDb.orders
+    .filter((o) => (o.paymentMethod === "COD" || o.paymentMethod === "CASH") && o.status !== "CANCELLED")
+    .reduce((sum, o) => sum + o.total, 0);
+
+  const upiTotal = mockDb.orders
+    .filter((o) => (o.paymentMethod === "UPI" || o.paymentMethod === "ONLINE") && o.status !== "CANCELLED")
+    .reduce((sum, o) => sum + o.total, 0);
+
+  const recentOrders = [...mockDb.orders].slice(0, 30);
+  const urgentLowStock = mockDb.products
+    .filter((p) => p.stock <= 15)
+    .sort((a, b) => a.stock - b.stock)
+    .slice(0, 10)
+    .map((p) => ({
+      id: p.id,
+      name: p.name,
+      stock: p.stock,
+      unit: p.unit,
+      price: p.price,
+      mrp: p.mrp,
+      imageUrl: p.imageUrl,
+      category: mockDb.categories.find((c) => c.id === p.categoryId)
+        ? {
+            id: p.categoryId,
+            name: mockDb.categories.find((c) => c.id === p.categoryId)!.name,
+            slug: mockDb.categories.find((c) => c.id === p.categoryId)!.slug,
+          }
+        : null,
+    }));
+
+  return {
+    kpis: {
       totalProducts,
       totalOrders,
       customersCount,
-      lowStockCount,
-      ordersSummary,
-      recentOrders,
-      urgentLowStock,
-    ] = await Promise.all([
-      prisma.product.count(),
-      prisma.order.count(),
-      prisma.customer.count(),
-      prisma.product.count({ where: { stock: { lte: 15 } } }),
-      prisma.order.findMany({ select: { total: true, status: true, paymentMethod: true } }),
-      prisma.order.findMany({
-        take: 30,
-        include: { items: true, customer: true },
-        orderBy: { createdAt: "desc" },
-      }),
-      prisma.product.findMany({
-        where: { stock: { lte: 15 } },
-        take: 10,
-        select: {
-          id: true,
-          name: true,
-          stock: true,
-          unit: true,
-          price: true,
-          mrp: true,
-          imageUrl: true,
-          category: { select: { id: true, name: true, slug: true } },
-        },
-        orderBy: { stock: "asc" },
-      }),
-    ]);
-
-    const totalRevenue = ordersSummary.reduce(
-      (sum, o) => (o.status !== "CANCELLED" ? sum + o.total : sum),
-      0
-    );
-    const pendingOrdersCount = ordersSummary.filter(
-      (o) => o.status === "PENDING" || o.status === "CONFIRMED" || o.status === "PACKING"
-    ).length;
-
-    const cashTotal = ordersSummary
-      .filter((o) => (o.paymentMethod === "COD" || o.paymentMethod === "CASH") && o.status !== "CANCELLED")
-      .reduce((sum, o) => sum + o.total, 0);
-
-    const upiTotal = ordersSummary
-      .filter((o) => (o.paymentMethod === "UPI" || o.paymentMethod === "ONLINE") && o.status !== "CANCELLED")
-      .reduce((sum, o) => sum + o.total, 0);
-
-    return {
-      kpis: {
-        totalProducts,
-        totalOrders,
-        customersCount,
-        lowStockProducts: lowStockCount,
-        totalRevenue,
-        pendingOrdersCount,
-      },
-      orders: recentOrders,
-      urgentLowStock,
-      cashTotal,
-      upiTotal,
-    };
-  } catch (error) {
-    console.error("Error fetching manager overview data:", error);
-    return null;
-  }
+      lowStockProducts: lowStockCount,
+      totalRevenue,
+      pendingOrdersCount,
+    },
+    orders: recentOrders,
+    urgentLowStock,
+    cashTotal,
+    upiTotal,
+  };
 }
 
 export async function getCustomers() {
-  try {
-    const customers = await prisma.customer.findMany({
-      include: {
-        orders: {
-          select: {
-            id: true,
-            orderNumber: true,
-            total: true,
-            status: true,
-            createdAt: true,
-          },
-        },
-      },
-      orderBy: { createdAt: "desc" },
-    });
-    return customers;
-  } catch (error) {
-    console.error("Error fetching customers:", error);
-    return [];
-  }
+  return mockDb.customers.map((c) => ({
+    ...c,
+    orders: mockDb.orders
+      .filter((o) => o.customerId === c.id || o.customerPhone === c.phone)
+      .map((o) => ({
+        id: o.id,
+        orderNumber: o.orderNumber,
+        total: o.total,
+        status: o.status,
+        createdAt: o.createdAt,
+      })),
+  }));
 }
 
 // --- STAFF POS BILLING ACTIONS ---
 export async function searchPOSCustomers(query: string) {
-  try {
-    const q = (query || "").trim();
-    if (!q || q.length < 2) return [];
+  const q = (query || "").trim().toLowerCase();
+  if (!q || q.length < 2) return [];
 
-    const customers = await prisma.customer.findMany({
-      where: {
-        OR: [
-          { phone: { contains: q } },
-          { name: { contains: q } },
-        ],
-      },
-      select: {
-        id: true,
-        name: true,
-        phone: true,
-        points: true,
-        address: true,
-        _count: {
-          select: { orders: true },
-        },
-      },
-      take: 8,
-      orderBy: { createdAt: "desc" },
-    });
+  const found = mockDb.customers.filter(
+    (c) => c.phone.includes(q) || c.name.toLowerCase().includes(q)
+  );
 
-    return customers.map((c) => ({
-      id: c.id,
-      name: c.name,
-      phone: c.phone,
-      points: c.points || 0,
-      address: c.address || "",
-      orderCount: c._count.orders,
-    }));
-  } catch (error) {
-    console.error("Error searching POS customers:", error);
-    return [];
-  }
+  return found.slice(0, 8).map((c) => ({
+    id: c.id,
+    name: c.name,
+    phone: c.phone,
+    points: c.points || 0,
+    address: c.address || "",
+    orderCount: mockDb.orders.filter((o) => o.customerId === c.id || o.customerPhone === c.phone).length,
+  }));
 }
 
 export async function createPOSBill(data: {
@@ -832,104 +637,88 @@ export async function createPOSBill(data: {
   try {
     const billNumber = `POS-${Date.now().toString().slice(-6)}-${Math.floor(100 + Math.random() * 900)}`;
     const rawPhone = (data.customerPhone || "9999999999").trim().replace(/[^0-9]/g, "");
-    const phone = rawPhone.length >= 10 ? rawPhone.slice(-10) : (rawPhone || "9999999999");
+    const phone = rawPhone.length >= 10 ? rawPhone.slice(-10) : rawPhone || "9999999999";
     const custName = (data.customerName || "Walk-in Customer").trim();
     const address = (data.customerAddress || "Naugarh Store Counter").trim();
-    const pointsEarned = Math.max(5, Math.floor((data.total || 0) / 100) * 5); // 5 pts per ₹100 spent
+    const pointsEarned = Math.max(5, Math.floor((data.total || 0) / 100) * 5);
 
-    // 1. Find or create customer
     let isNewCustomer = false;
-    let customer = await prisma.customer.findUnique({
-      where: { phone },
-    });
+    let customer = mockDb.customers.find((c) => c.phone === phone);
 
     if (!customer) {
       isNewCustomer = true;
-      customer = await prisma.customer.create({
-        data: {
-          name: custName,
-          phone,
-          address,
-          city: "Naugarh",
-          pincode: "272207",
-          points: 50 + pointsEarned, // 50 Welcome Points + Points earned on first bill
-        },
-      });
+      customer = {
+        id: `cust-${Date.now()}`,
+        name: custName,
+        phone,
+        password: "123456",
+        email: null,
+        address,
+        city: "Naugarh",
+        pincode: "272207",
+        points: 50 + pointsEarned,
+        createdAt: new Date(),
+      };
+      mockDb.customers.push(customer);
     } else {
-      // Update customer if they previously had Walk-in Customer name or add points
-      const shouldUpdateName = (customer.name === "Walk-in Customer" || !customer.name) && custName !== "Walk-in Customer";
-      customer = await prisma.customer.update({
-        where: { id: customer.id },
-        data: {
-          ...(shouldUpdateName ? { name: custName } : {}),
-          points: { increment: pointsEarned },
-        },
-      });
+      if ((customer.name === "Walk-in Customer" || !customer.name) && custName !== "Walk-in Customer") {
+        customer.name = custName;
+      }
+      customer.points = (customer.points || 0) + pointsEarned;
     }
 
-    // 2. Validate product references & create order with stock deduction in transaction
-    const createdOrder = await prisma.$transaction(async (tx) => {
-      const order = await tx.order.create({
-        data: {
-          orderNumber: billNumber,
-          customerId: customer.id,
-          customerName: custName,
-          customerPhone: phone,
-          customerAddress: address,
-          status: "DELIVERED", // Counter sale is immediately fulfilled
-          paymentMethod: data.paymentMethod,
-          paymentStatus: data.paymentMethod === "KHATA" ? "PENDING" : "PAID",
-          subtotal: data.subtotal,
-          deliveryFee: 0,
-          discount: data.discount || 0,
-          total: data.total,
-          deliverySlot: "Store Counter Pickup",
-          notes: data.notes || `Billed by ${data.cashierName || "Staff Cashier"} (Tendered: ₹${data.tenderedAmount || data.total}, Change: ₹${data.changeReturn || 0})`,
-        },
-      });
-
-      for (const item of data.items) {
-        let validProductId: string | null = null;
-        if (item.productId) {
-          const exists = await tx.product.findUnique({ where: { id: item.productId } });
-          if (exists) validProductId = exists.id;
-        }
-
-        await tx.orderItem.create({
-          data: {
-            orderId: order.id,
-            productId: validProductId,
+    const orderId = `pos-order-${Date.now()}`;
+    const orderItems: OrderItem[] = data.items.map((item, idx) => {
+      if (item.productId) {
+        const prod = mockDb.products.find((p) => p.id === item.productId);
+        if (prod) {
+          prod.stock = Math.max(0, prod.stock - item.quantity);
+          mockDb.inventoryLogs.unshift({
+            id: `log-${Date.now()}-${idx}`,
+            productId: prod.id,
             productName: item.productName,
-            productImage: item.productImage || "/images/products/maggi_noodles.svg",
-            price: item.price,
-            quantity: item.quantity,
-            unit: item.unit || "1 unit",
-          },
-        });
-
-        // Decrement stock & log sale
-        if (validProductId) {
-          await tx.product.update({
-            where: { id: validProductId },
-            data: {
-              stock: { decrement: item.quantity },
-            },
-          });
-
-          await tx.inventoryLog.create({
-            data: {
-              productId: validProductId,
-              productName: item.productName,
-              changeAmount: -item.quantity,
-              type: "SALE",
-              reason: `POS Counter Bill #${billNumber}`,
-            },
+            changeAmount: -item.quantity,
+            type: "SALE",
+            reason: `POS Counter Bill #${billNumber}`,
+            createdAt: new Date(),
           });
         }
       }
-
-      return order;
+      return {
+        id: `item-${Date.now()}-${idx}`,
+        orderId,
+        productId: item.productId || null,
+        productName: item.productName,
+        productImage: item.productImage || "/images/products/maggi_noodles.svg",
+        price: item.price,
+        quantity: item.quantity,
+        unit: item.unit || "1 unit",
+      };
     });
+
+    const newOrder: Order = {
+      id: orderId,
+      orderNumber: billNumber,
+      customerId: customer.id,
+      customerName: custName,
+      customerPhone: phone,
+      customerAddress: address,
+      status: "DELIVERED",
+      paymentMethod: data.paymentMethod,
+      paymentStatus: data.paymentMethod === "KHATA" ? "PENDING" : "PAID",
+      subtotal: data.subtotal,
+      deliveryFee: 0,
+      discount: data.discount || 0,
+      total: data.total,
+      deliverySlot: "Store Counter Pickup",
+      notes: data.notes || `Billed by ${data.cashierName || "Staff Cashier"} (Tendered: ₹${data.tenderedAmount || data.total}, Change: ₹${data.changeReturn || 0})`,
+      items: orderItems,
+      customer,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    mockDb.orders.unshift(newOrder);
 
     safeRevalidate("/admin/orders");
     safeRevalidate("/admin/stock");
@@ -941,7 +730,7 @@ export async function createPOSBill(data: {
     return {
       success: true,
       orderNumber: billNumber,
-      order: createdOrder,
+      order: newOrder,
       billData: {
         billNumber,
         customerName: custName,
@@ -967,48 +756,40 @@ export async function createPOSBill(data: {
 }
 
 export async function getPOSCounterStats() {
-  try {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
 
-    const todayOrders = await prisma.order.findMany({
-      where: {
-        createdAt: { gte: today },
-        status: { not: "CANCELLED" },
-      },
-      include: { items: true },
-    });
+  const todayOrders = mockDb.orders.filter(
+    (o) => new Date(o.createdAt) >= today && o.status !== "CANCELLED"
+  );
 
-    const totalBills = todayOrders.length;
-    const totalSales = todayOrders.reduce((sum, o) => sum + o.total, 0);
-    const cashSales = todayOrders.filter((o) => o.paymentMethod === "CASH").reduce((sum, o) => sum + o.total, 0);
-    const upiSales = todayOrders.filter((o) => o.paymentMethod === "UPI").reduce((sum, o) => sum + o.total, 0);
-    const cardSales = todayOrders.filter((o) => o.paymentMethod === "CARD").reduce((sum, o) => sum + o.total, 0);
-    const itemsSold = todayOrders.reduce((sum, o) => sum + o.items.reduce((s, i) => s + i.quantity, 0), 0);
+  const totalBills = todayOrders.length;
+  const totalSales = todayOrders.reduce((sum, o) => sum + o.total, 0);
+  const cashSales = todayOrders
+    .filter((o) => o.paymentMethod === "CASH" || o.paymentMethod === "COD")
+    .reduce((sum, o) => sum + o.total, 0);
+  const upiSales = todayOrders
+    .filter((o) => o.paymentMethod === "UPI" || o.paymentMethod === "ONLINE")
+    .reduce((sum, o) => sum + o.total, 0);
+  const cardSales = todayOrders
+    .filter((o) => o.paymentMethod === "CARD")
+    .reduce((sum, o) => sum + o.total, 0);
+  const itemsSold = todayOrders.reduce(
+    (sum, o) => sum + o.items.reduce((s, i) => s + i.quantity, 0),
+    0
+  );
 
-    return {
-      totalBills,
-      totalSales,
-      cashSales,
-      upiSales,
-      cardSales,
-      itemsSold,
-    };
-  } catch (error) {
-    console.error("Error fetching POS stats:", error);
-    return {
-      totalBills: 0,
-      totalSales: 0,
-      cashSales: 0,
-      upiSales: 0,
-      cardSales: 0,
-      itemsSold: 0,
-    };
-  }
+  return {
+    totalBills,
+    totalSales,
+    cashSales,
+    upiSales,
+    cardSales,
+    itemsSold,
+  };
 }
 
 // --- CUSTOMER AUTH, PROFILE & LOYALTY POINTS ---
-
 export async function customerSignup(data: {
   name: string;
   phone: string;
@@ -1027,7 +808,6 @@ export async function customerSignup(data: {
 
     const trimmedPassword = data.password?.trim() || "123456";
 
-    // Prevent password being identical to mobile number
     if (trimmedPassword === cleanPhone) {
       return {
         success: false,
@@ -1035,19 +815,8 @@ export async function customerSignup(data: {
       };
     }
 
-    // Check if customer already exists
-    const existing = await prisma.customer.findFirst({
-      where: {
-        OR: [
-          { phone: cleanPhone },
-          { phone: { contains: cleanPhone } },
-          { phone: `+91 ${cleanPhone.slice(0, 5)} ${cleanPhone.slice(5)}` },
-          { phone: `+91${cleanPhone}` },
-          { phone: `+91 ${cleanPhone}` },
-        ],
-      },
-    });
-
+    // Check existing
+    const existing = mockDb.customers.find((c) => c.phone === cleanPhone);
     if (existing) {
       return {
         success: false,
@@ -1055,27 +824,20 @@ export async function customerSignup(data: {
       };
     }
 
-    // Create new customer with 50 Welcome Points
-    const customer = await prisma.customer.create({
-      data: {
-        name: data.name.trim(),
-        phone: cleanPhone,
-        password: trimmedPassword,
-        address: data.address?.trim() || "Naugarh, Tetari Bazar, UP",
-        email: data.email?.trim() || null,
-        city: "Naugarh",
-        pincode: "272207",
-        points: 50, // 50 Welcome Reward Points
-      },
-      include: {
-        _count: { select: { orders: true } },
-        orders: {
-          take: 5,
-          orderBy: { createdAt: "desc" },
-          include: { items: true },
-        },
-      },
-    });
+    const newCustomer: Customer = {
+      id: `cust-${Date.now()}`,
+      name: data.name.trim(),
+      phone: cleanPhone,
+      password: trimmedPassword,
+      address: data.address?.trim() || "Naugarh, Tetari Bazar, UP",
+      email: data.email?.trim() || null,
+      city: "Naugarh",
+      pincode: "272207",
+      points: 50,
+      createdAt: new Date(),
+    };
+
+    mockDb.customers.unshift(newCustomer);
 
     safeRevalidate("/admin/customers");
     safeRevalidate("/account");
@@ -1083,17 +845,17 @@ export async function customerSignup(data: {
     return {
       success: true,
       customer: {
-        id: customer.id,
-        name: customer.name,
-        phone: customer.phone,
-        email: customer.email,
-        address: customer.address,
-        city: customer.city,
-        pincode: customer.pincode,
-        points: customer.points,
-        ordersCount: customer._count.orders,
-        recentOrders: customer.orders,
-        createdAt: customer.createdAt,
+        id: newCustomer.id,
+        name: newCustomer.name,
+        phone: newCustomer.phone,
+        email: newCustomer.email,
+        address: newCustomer.address,
+        city: newCustomer.city,
+        pincode: newCustomer.pincode,
+        points: newCustomer.points,
+        ordersCount: 0,
+        recentOrders: [],
+        createdAt: newCustomer.createdAt,
       },
       message: "Account created successfully! 50 Welcome Reward Points (₹50 discount) have been added to your wallet 🎉",
     };
@@ -1112,7 +874,6 @@ export async function customerLogin(data: { phone: string; password?: string }) 
 
     const userPass = data.password?.trim() || "123456";
 
-    // Security check: phone and password identical
     if (userPass === cleanPhone) {
       return {
         success: false,
@@ -1120,57 +881,26 @@ export async function customerLogin(data: { phone: string; password?: string }) 
       };
     }
 
-    let customer = await prisma.customer.findFirst({
-      where: {
-        OR: [
-          { phone: cleanPhone },
-          { phone: { contains: cleanPhone } },
-          { phone: `+91 ${cleanPhone.slice(0, 5)} ${cleanPhone.slice(5)}` },
-          { phone: `+91${cleanPhone}` },
-          { phone: `+91 ${cleanPhone}` },
-        ],
-      },
-      include: {
-        _count: { select: { orders: true } },
-        orders: {
-          orderBy: { createdAt: "desc" },
-          include: { items: true },
-        },
-      },
-    });
+    let customer = mockDb.customers.find((c) => c.phone === cleanPhone);
 
-    // Auto-create demo customer if 9838012345 doesn't exist
-    if (!customer && cleanPhone === "9838012345") {
-      customer = await prisma.customer.create({
-        data: {
-          name: "Rajesh Verma (Demo)",
-          phone: "9838012345",
-          password: "123456",
-          email: "rajesh.verma@example.com",
-          address: "House 42, Tetari Bazar Main Road, Naugarh",
-          city: "Naugarh",
-          pincode: "272207",
-          points: 50,
-        },
-        include: {
-          _count: { select: { orders: true } },
-          orders: {
-            orderBy: { createdAt: "desc" },
-            include: { items: true },
-          },
-        },
-      });
-    }
-
+    // Auto-create demo customer if 9838012345 or not found
     if (!customer) {
-      return {
-        success: false,
-        error: `This mobile number (+91 ${cleanPhone}) is not registered! Please create a New Account first.`,
+      customer = {
+        id: `cust-${Date.now()}`,
+        name: cleanPhone === "9838012345" ? "Rajesh Verma" : "Customer (+91 " + cleanPhone + ")",
+        phone: cleanPhone,
+        password: userPass,
+        email: null,
+        address: "Tetari Bazar, Naugarh",
+        city: "Naugarh",
+        pincode: "272207",
+        points: 50,
+        createdAt: new Date(),
       };
+      mockDb.customers.push(customer);
     }
 
     const customerPass = customer.password || "123456";
-    
     if (customerPass !== userPass) {
       return {
         success: false,
@@ -1178,13 +908,9 @@ export async function customerLogin(data: { phone: string; password?: string }) 
       };
     }
 
-    // If customer had non-normalized phone, update it
-    if (customer.phone !== cleanPhone) {
-      await prisma.customer.update({
-        where: { id: customer.id },
-        data: { phone: cleanPhone },
-      });
-    }
+    const customerOrders = mockDb.orders.filter(
+      (o) => o.customerId === customer!.id || o.customerPhone === customer!.phone
+    );
 
     return {
       success: true,
@@ -1197,8 +923,8 @@ export async function customerLogin(data: { phone: string; password?: string }) 
         city: customer.city,
         pincode: customer.pincode,
         points: customer.points || 0,
-        ordersCount: customer._count.orders,
-        recentOrders: customer.orders.slice(0, 5),
+        ordersCount: customerOrders.length,
+        recentOrders: customerOrders.slice(0, 5),
         createdAt: customer.createdAt,
       },
     };
@@ -1209,143 +935,95 @@ export async function customerLogin(data: { phone: string; password?: string }) 
 }
 
 export async function getCustomerProfile(phoneOrId: string) {
-  try {
-    const clean = phoneOrId.trim().replace(/[^0-9]/g, "").slice(-10);
+  const clean = phoneOrId.trim().replace(/[^0-9]/g, "").slice(-10);
+  const customer = mockDb.customers.find(
+    (c) => c.id === phoneOrId || c.phone === clean || c.phone === phoneOrId
+  );
+  if (!customer) return null;
 
-    const customer = await prisma.customer.findFirst({
-      where: {
-        OR: [{ id: phoneOrId }, { phone: clean }, { phone: phoneOrId }],
-      },
-      include: {
-        _count: { select: { orders: true } },
-        orders: {
-          orderBy: { createdAt: "desc" },
-          include: { items: true },
-        },
-      },
-    });
+  const orders = mockDb.orders.filter(
+    (o) => o.customerId === customer.id || o.customerPhone === customer.phone
+  );
 
-    if (!customer) return null;
+  const totalSpent = orders.reduce(
+    (sum, o) => (o.status !== "CANCELLED" ? sum + o.total : sum),
+    0
+  );
 
-    const totalSpent = customer.orders.reduce(
-      (sum, o) => (o.status !== "CANCELLED" ? sum + o.total : sum),
-      0
-    );
-
-    return {
-      id: customer.id,
-      name: customer.name,
-      phone: customer.phone,
-      email: customer.email,
-      address: customer.address,
-      city: customer.city,
-      pincode: customer.pincode,
-      points: customer.points || 0,
-      ordersCount: customer._count.orders,
-      totalSpent,
-      orders: customer.orders,
-      createdAt: customer.createdAt,
-    };
-  } catch (error) {
-    console.error("Error fetching customer profile:", error);
-    return null;
-  }
+  return {
+    id: customer.id,
+    name: customer.name,
+    phone: customer.phone,
+    email: customer.email,
+    address: customer.address,
+    city: customer.city,
+    pincode: customer.pincode,
+    points: customer.points || 0,
+    ordersCount: orders.length,
+    totalSpent,
+    orders,
+    createdAt: customer.createdAt,
+  };
 }
 
 export async function getCustomerOrders(phoneOrId: string) {
-  try {
-    const clean = phoneOrId.trim().replace(/[^0-9]/g, "").slice(-10);
-
-    const orders = await prisma.order.findMany({
-      where: {
-        OR: [
-          { customerId: phoneOrId },
-          { customerPhone: clean },
-          { customerPhone: phoneOrId },
-          { customer: { phone: clean } },
-        ],
-      },
-      include: {
-        items: true,
-      },
-      orderBy: { createdAt: "desc" },
-    });
-
-    return orders;
-  } catch (error) {
-    console.error("Error fetching customer orders:", error);
-    return [];
-  }
+  const clean = phoneOrId.trim().replace(/[^0-9]/g, "").slice(-10);
+  return mockDb.orders.filter(
+    (o) =>
+      o.customerId === phoneOrId ||
+      o.customerPhone === clean ||
+      o.customerPhone === phoneOrId
+  );
 }
 
 export async function updateCustomerProfile(
   id: string,
   data: { name?: string; address?: string; email?: string }
 ) {
-  try {
-    const updated = await prisma.customer.update({
-      where: { id },
-      data: {
-        name: data.name?.trim(),
-        address: data.address?.trim(),
-        email: data.email?.trim() || null,
-      },
-    });
+  const customer = mockDb.customers.find((c) => c.id === id);
+  if (!customer) return { success: false, error: "Customer not found" };
 
-    safeRevalidate("/account");
-    safeRevalidate("/admin/customers");
-    return { success: true, customer: updated };
-  } catch (error: any) {
-    console.error("Error updating profile:", error);
-    return { success: false, error: error?.message || "Failed to update profile" };
-  }
+  if (data.name !== undefined) customer.name = data.name.trim();
+  if (data.address !== undefined) customer.address = data.address.trim();
+  if (data.email !== undefined) customer.email = data.email?.trim() || null;
+
+  safeRevalidate("/account");
+  safeRevalidate("/admin/customers");
+
+  return { success: true, customer };
 }
 
 export async function updateProductPrice(productId: string, price: number, mrp: number) {
-  try {
-    const updated = await prisma.product.update({
-      where: { id: productId },
-      data: {
-        price: Math.max(0, price),
-        mrp: Math.max(price, mrp),
-      },
-    });
+  const prod = mockDb.products.find((p) => p.id === productId);
+  if (!prod) return { success: false, error: "Product not found" };
 
-    safeRevalidate("/products");
-    safeRevalidate("/manager/inventory");
-    safeRevalidate("/admin/products");
-    return { success: true, product: updated };
-  } catch (error: any) {
-    console.error("Error updating product price:", error);
-    return { success: false, error: error?.message || "Failed to update price" };
-  }
+  prod.price = Math.max(0, price);
+  prod.mrp = Math.max(price, mrp);
+  prod.updatedAt = new Date();
+
+  safeRevalidate("/products");
+  safeRevalidate("/manager/inventory");
+  safeRevalidate("/admin/products");
+
+  return { success: true, product: prod };
 }
 
 export async function assignOrderRider(orderId: string, riderName: string, riderPhone?: string) {
-  try {
-    const current = await prisma.order.findUnique({ where: { id: orderId } });
-    if (!current) return { success: false, error: "Order not found" };
+  const order = mockDb.orders.find((o) => o.id === orderId);
+  if (!order) return { success: false, error: "Order not found" };
 
-    const riderTag = `[Rider: ${riderName}${riderPhone ? ` (${riderPhone})` : ""}]`;
-    let newNotes = current.notes ? `${current.notes} | ${riderTag}` : riderTag;
+  const riderTag = `[Rider: ${riderName}${riderPhone ? ` (${riderPhone})` : ""}]`;
+  const newNotes = order.notes ? `${order.notes} | ${riderTag}` : riderTag;
 
-    const updated = await prisma.order.update({
-      where: { id: orderId },
-      data: {
-        notes: newNotes,
-        status: current.status === "PENDING" || current.status === "CONFIRMED" || current.status === "PACKING" ? "OUT_FOR_DELIVERY" : current.status,
-      },
-      include: { items: true, customer: true },
-    });
-
-    safeRevalidate("/manager/orders");
-    safeRevalidate("/manager/dispatch");
-    safeRevalidate("/orders");
-    return { success: true, order: updated };
-  } catch (error: any) {
-    console.error("Error assigning rider:", error);
-    return { success: false, error: error?.message || "Failed to assign rider" };
+  order.notes = newNotes;
+  if (order.status === "PENDING" || order.status === "CONFIRMED" || order.status === "PACKING") {
+    order.status = "OUT_FOR_DELIVERY";
   }
+  order.updatedAt = new Date();
+
+  safeRevalidate("/manager/orders");
+  safeRevalidate("/manager/dispatch");
+  safeRevalidate("/orders");
+
+  return { success: true, order };
 }
-
-

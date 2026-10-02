@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import prisma from "@/lib/prisma";
+import { mockDb } from "@/lib/mockStore";
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
@@ -12,9 +12,7 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const coupon = await prisma.coupon.findUnique({
-      where: { code },
-    });
+    const coupon = mockDb.coupons.find((c) => c.code === code);
 
     if (!coupon || !coupon.isActive) {
       return NextResponse.json({ valid: false, message: "Invalid or expired coupon code" }, { status: 404 });

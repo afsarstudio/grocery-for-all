@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import prisma from "@/lib/prisma";
+import { mockDb } from "@/lib/mockStore";
 
 export async function POST(request: NextRequest) {
   try {
@@ -14,10 +14,11 @@ export async function POST(request: NextRequest) {
     }
 
     // Fetch existing catalog
-    const [existingProducts, categories] = await Promise.all([
-      prisma.product.findMany({ include: { category: true } }),
-      prisma.category.findMany(),
-    ]);
+    const existingProducts = mockDb.products.map((p) => ({
+      ...p,
+      category: mockDb.categories.find((c) => c.id === p.categoryId),
+    }));
+    const categories = mockDb.categories;
 
     const catalogListString = existingProducts
       .map(

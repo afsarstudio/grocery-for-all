@@ -1,19 +1,14 @@
 import React from "react";
-import prisma from "@/lib/prisma";
+import { getOrders, getProducts, getCategories } from "@/lib/actions";
 import AdminSalesClient from "./AdminSalesClient";
 
 export const revalidate = 0;
 
 export default async function AdminSalesPage() {
   const [orders, products, categories] = await Promise.all([
-    prisma.order.findMany({
-      include: { items: true },
-      orderBy: { createdAt: "desc" },
-    }),
-    prisma.product.findMany({
-      include: { category: true },
-    }),
-    prisma.category.findMany(),
+    getOrders(),
+    getProducts(),
+    getCategories(),
   ]);
 
   const totalRevenue = orders.reduce(
