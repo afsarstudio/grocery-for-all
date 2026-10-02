@@ -72,23 +72,6 @@ export function CustomerAuthProvider({ children }: { children: React.ReactNode }
     } finally {
       setIsLoading(false);
     }
-
-    // If not logged in and visiting customer storefront, prompt signin
-    if (!hasSession && typeof window !== "undefined") {
-      const path = window.location.pathname;
-      const isInternalPortal =
-        path.startsWith("/admin") ||
-        path.startsWith("/manager") ||
-        path.startsWith("/staff") ||
-        path.startsWith("/pos");
-
-      if (!isInternalPortal) {
-        const timer = setTimeout(() => {
-          setIsAuthModalOpen(true);
-        }, 500);
-        return () => clearTimeout(timer);
-      }
-    }
   }, []);
 
   const openAuthModal = (tab: "login" | "signup" = "login") => {
